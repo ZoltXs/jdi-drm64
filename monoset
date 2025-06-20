@@ -1,0 +1,363 @@
+#!/bin/bash
+# LPM027M128C Color/Mono Control
+# Específico para Sharp Memory LCD LPM027M128C
+# 2.7" reflective TFT - Memory in Pixel - SPI - 8 colors
+# Autor: N@Xs - Enhanced Edition 2025
+
+# Colors
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+PURPLE='\033[0;35m'
+NC='\033[0m'
+
+show_banner() {
+    echo -e "${PURPLE}╔══════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${PURPLE}║              LPM027M128C Color/Mono Control              ║${NC}"
+    echo -e "${PURPLE}║         2.7\" reflective TFT - Memory in Pixel           ║${NC}"
+    echo -e "${PURPLE}║              SPI Interface - 8 Colors                    ║${NC}"
+    echo -e "${PURPLE}╚══════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+}
+
+show_usage() {
+    show_banner
+    echo "Usage: $0 [command]"
+    echo ""
+    echo "Commands:"
+    echo "  status              - Show current LPM027M128C settings"
+    echo "  color               - Enable 8-color mode (3-bit data)"
+    echo "  mono                - Enable monochrome mode"
+    echo "  mono-invert         - Toggle mono inversion"
+    echo "  8colors             - Enable full 8-color palette"
+    echo "  reflective          - Optimize for reflective mode"
+    echo "  mip-optimize        - Optimize for Memory in Pixel"
+    echo "  set-mono-cutoff N   - Set mono cutoff (0-255)"
+    echo "  set-color-cutoff N  - Set color cutoff (0-255)"
+    echo ""
+    echo "LPM027M128C Specific modes:"
+    echo "  low-power           - Enable MIP low power mode"
+    echo "  high-contrast       - Optimize for reflective contrast"
+    echo ""
+    echo "Examples:"
+    echo "  $0 status           # Show current mode"
+    echo "  $0 8colors          # Enable 8-color mode"
+    echo "  $0 reflective       # Optimize for reflective LCD"
+    echo "  $0 mip-optimize     # Optimize Memory in Pixel"
+}
+
+check_driver() {
+    if ! lsmod | grep -q jdi_drm_enhanced; then
+        echo -e "${RED}Error: JDI driver not loaded${NC}"
+        echo "Load with: sudo modprobe jdi_drm_enhanced"
+        exit 1
+    fi
+}
+
+verify_lpm027() {
+    # Verificar que estamos usando el LPM027M128C
+    if [ -f "/sys/class/graphics/fb0/virtual_size" ]; then
+        resolution=$(cat /sys/class/graphics/fb0/virtual_size)
+        if [ "$resolution" != "400,240" ]; then
+            echo -e "${YELLOW}Warning: Resolution $resolution may not match LPM027M128C (400x240)${NC}"
+        fi
+    fi
+}
+
+show_status() {
+    check_driver
+    verify_lpm027
+    
+    show_banner
+    echo -e "${BLUE}LPM027M128C Display Status${NC}"
+    echo "=========================="
+    
+    # Display info
+    if [ -f "/sys/class/graphics/fb0/virtual_size" ]; then
+        resolution=$(cat /sys/class/graphics/fb0/virtual_size)
+        echo "Resolution: $resolution (LPM027M128C: 400×240)"
+    fi
+    
+    # Read current values
+    color_mode=$(sudo cat /sys/module/jdi_drm_enhanced/parameters/color 2>/dev/null || echo "N/A")
+    mono_cutoff=$(sudo cat /sys/module/jdi_drm_enhanced/parameters/mono_cutoff 2>/dev/null || echo "N/A")
+    mono_invert=$(sudo cat /sys/module/jdi_drm_enhanced/parameters/mono_invert 2>/dev/null || echo "N/A")
+    color_cutoff=$(sudo cat /sys/module/jdi_drm_enhanced/parameters/color_cutoff 2>/dev/null || echo "N/A")
+    dither=$(sudo cat /sys/module/jdi_drm_enhanced/parameters/dither 2>/dev/null || echo "N/A")
+    
+    # Display mode with LPM027M128C context
+    if [ "$color_mode" = "Y" ]; then
+        echo -e "Display Mode: ${GREEN}8-COLOR MODE${NC} (3-bit data)"
+        echo "  Color cutoff: $color_cutoff (0-255)"
+        echo "  Optimized for: MIP 8-color palette"
+    else
+        echo -e "Display Mode: ${YELLOW}MONOCHROME${NC}"
+        echo "  Mono cutoff: $mono_cutoff (0-255)"
+        if [ "$mono_invert" = "Y" ]; then
+            echo -e "  Inversion: ${GREEN}ON${NC} (for reflective contrast)"
+        else
+            echo -e "  Inversion: ${RED}OFF${NC}"
+        fi
+        echo "  Optimized for: Reflective LCD contrast"
+    fi
+    
+    # MIP-specific info
+    echo ""
+    echo -e "${CYAN}Memory in Pixel (MIP) Status:${NC}"
+    echo "  Dithering: $dither (optimizes MIP pixel quality)"
+    
+    auto_save=$(sudo cat /sys/module/jdi_drm_enhanced/parameters/auto_power_save 2>/dev/null || echo "N/A")
+    if [ "$auto_save" = "Y" ]; then
+        timeout=$(sudo cat /sys/module/jdi_drm_enhanced/parameters/idle_timeout 2>/dev/null || echo "N/A")
+        echo -e "  Power save: ${GREEN}ENABLED${NC} (MIP low power - ${timeout}ms)"
+    else
+        echo -e "  Power save: ${RED}DISABLED${NC}"
+    fi
+    
+    # Reflective LCD info
+    echo ""
+    echo -e "${CYAN}Reflective LCD Optimization:${NC}"
+    echo "  Type: Reflective TFT with MIP technology"
+    echo "  Interface: SPI (optimized for low power)"
+    
+    echo ""
+    echo "Parameter Details:"
+    echo "  color: $color_mode"
+    echo "  mono_cutoff: $mono_cutoff"
+    echo "  mono_invert: $mono_invert" 
+    echo "  color_cutoff: $color_cutoff"
+    echo "  dither: $dither"
+}
+
+set_8color_mode() {
+    check_driver
+    echo -e "${BLUE}[INFO]${NC} Enabling LPM027M128C 8-color mode (3-bit data)..."
+    
+    # Enable color mode
+    echo 'Y' | sudo tee /sys/module/jdi_drm_enhanced/parameters/color > /dev/null
+    
+    # Optimize color cutoff for 8-color palette
+    echo '110' | sudo tee /sys/module/jdi_drm_enhanced/parameters/color_cutoff > /dev/null
+    
+    # Enable dithering for better 8-color reproduction
+    echo '1' | sudo tee /sys/module/jdi_drm_enhanced/parameters/dither > /dev/null
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}[SUCCESS]${NC} 8-color mode enabled (optimized for MIP)"
+    else
+        echo -e "${RED}[ERROR]${NC} Failed to enable 8-color mode"
+        exit 1
+    fi
+}
+
+set_mono_mode() {
+    check_driver
+    echo -e "${BLUE}[INFO]${NC} Enabling LPM027M128C monochrome mode..."
+    
+    # Disable color mode
+    echo 'N' | sudo tee /sys/module/jdi_drm_enhanced/parameters/color > /dev/null
+    
+    # Optimize mono cutoff for reflective contrast
+    echo '50' | sudo tee /sys/module/jdi_drm_enhanced/parameters/mono_cutoff > /dev/null
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}[SUCCESS]${NC} Monochrome mode enabled (optimized for reflective)"
+    else
+        echo -e "${RED}[ERROR]${NC} Failed to enable monochrome mode"
+        exit 1
+    fi
+}
+
+optimize_reflective() {
+    check_driver
+    echo -e "${BLUE}[INFO]${NC} Optimizing for LPM027M128C reflective mode..."
+    
+    # Optimize for reflective LCD characteristics
+    echo '75' | sudo tee /sys/module/jdi_drm_enhanced/parameters/mono_cutoff > /dev/null
+    echo '125' | sudo tee /sys/module/jdi_drm_enhanced/parameters/color_cutoff > /dev/null
+    echo '1' | sudo tee /sys/module/jdi_drm_enhanced/parameters/dither > /dev/null
+    
+    echo -e "${GREEN}[SUCCESS]${NC} Reflective mode optimization applied"
+}
+
+optimize_mip() {
+    check_driver
+    echo -e "${BLUE}[INFO]${NC} Optimizing Memory in Pixel (MIP) settings..."
+    
+    # Enable power saving for MIP
+    echo 'Y' | sudo tee /sys/module/jdi_drm_enhanced/parameters/auto_power_save > /dev/null
+    echo '90000' | sudo tee /sys/module/jdi_drm_enhanced/parameters/idle_timeout > /dev/null
+    
+    # Enable auto clear for MIP memory protection
+    echo 'Y' | sudo tee /sys/module/jdi_drm_enhanced/parameters/auto_clear > /dev/null
+    
+    # Enable overlays for MIP efficiency
+    echo 'Y' | sudo tee /sys/module/jdi_drm_enhanced/parameters/overlays > /dev/null
+    
+    echo -e "${GREEN}[SUCCESS]${NC} MIP optimization applied (low power mode)"
+}
+
+enable_low_power() {
+    check_driver
+    echo -e "${BLUE}[INFO]${NC} Enabling LPM027M128C low power mode..."
+    
+    # MIP low power settings
+    echo 'N' | sudo tee /sys/module/jdi_drm_enhanced/parameters/color > /dev/null
+    echo '45' | sudo tee /sys/module/jdi_drm_enhanced/parameters/mono_cutoff > /dev/null
+    echo 'Y' | sudo tee /sys/module/jdi_drm_enhanced/parameters/auto_power_save > /dev/null
+    echo '60000' | sudo tee /sys/module/jdi_drm_enhanced/parameters/idle_timeout > /dev/null
+    
+    # Set backlight to minimum
+    echo '1' > /sys/class/backlight/jdi-backlight/brightness 2>/dev/null || true
+    
+    echo -e "${GREEN}[SUCCESS]${NC} Low power mode enabled (MIP optimized)"
+}
+
+enable_high_contrast() {
+    check_driver
+    echo -e "${BLUE}[INFO]${NC} Enabling high contrast for reflective LCD..."
+    
+    # High contrast settings for reflective display
+    current_mode=$(sudo cat /sys/module/jdi_drm_enhanced/parameters/color 2>/dev/null)
+    
+    if [ "$current_mode" = "Y" ]; then
+        echo '140' | sudo tee /sys/module/jdi_drm_enhanced/parameters/color_cutoff > /dev/null
+    else
+        echo '65' | sudo tee /sys/module/jdi_drm_enhanced/parameters/mono_cutoff > /dev/null
+    fi
+    
+    echo '1' | sudo tee /sys/module/jdi_drm_enhanced/parameters/dither > /dev/null
+    
+    echo -e "${GREEN}[SUCCESS]${NC} High contrast mode enabled"
+}
+
+toggle_mono_invert() {
+    check_driver
+    current=$(sudo cat /sys/module/jdi_drm_enhanced/parameters/mono_invert 2>/dev/null || echo "N")
+    
+    if [ "$current" = "Y" ]; then
+        new_value="N"
+        action="disabled"
+    else
+        new_value="Y"
+        action="enabled"
+    fi
+    
+    echo -e "${BLUE}[INFO]${NC} Toggling mono inversion for reflective contrast..."
+    echo "$new_value" | sudo tee /sys/module/jdi_drm_enhanced/parameters/mono_invert > /dev/null
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}[SUCCESS]${NC} Mono inversion $action (reflective optimized)"
+    else
+        echo -e "${RED}[ERROR]${NC} Failed to toggle mono inversion"
+        exit 1
+    fi
+}
+
+set_mono_cutoff() {
+    local cutoff=$1
+    check_driver
+    
+    if [ -z "$cutoff" ] || [ "$cutoff" -lt 0 ] || [ "$cutoff" -gt 255 ]; then
+        echo -e "${RED}[ERROR]${NC} Invalid cutoff value. Must be 0-255"
+        exit 1
+    fi
+    
+    echo -e "${BLUE}[INFO]${NC} Setting LPM027M128C mono cutoff to $cutoff..."
+    echo "$cutoff" | sudo tee /sys/module/jdi_drm_enhanced/parameters/mono_cutoff > /dev/null
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}[SUCCESS]${NC} Mono cutoff set to $cutoff (reflective optimized)"
+    else
+        echo -e "${RED}[ERROR]${NC} Failed to set mono cutoff"
+        exit 1
+    fi
+}
+
+set_color_cutoff() {
+    local cutoff=$1
+    check_driver
+    
+    if [ -z "$cutoff" ] || [ "$cutoff" -lt 0 ] || [ "$cutoff" -gt 255 ]; then
+        echo -e "${RED}[ERROR]${NC} Invalid cutoff value. Must be 0-255"
+        exit 1
+    fi
+    
+    echo -e "${BLUE}[INFO]${NC} Setting LPM027M128C color cutoff to $cutoff..."
+    echo "$cutoff" | sudo tee /sys/module/jdi_drm_enhanced/parameters/color_cutoff > /dev/null
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}[SUCCESS]${NC} Color cutoff set to $cutoff (8-color optimized)"
+    else
+        echo -e "${RED}[ERROR]${NC} Failed to set color cutoff"
+        exit 1
+    fi
+}
+
+# Main command processing
+case "${1:-status}" in
+    status)
+        show_status
+        ;;
+    color)
+        set_8color_mode
+        echo ""
+        show_status
+        ;;
+    mono)
+        set_mono_mode
+        echo ""
+        show_status
+        ;;
+    8colors)
+        set_8color_mode
+        echo ""
+        show_status
+        ;;
+    reflective)
+        optimize_reflective
+        echo ""
+        show_status
+        ;;
+    mip-optimize)
+        optimize_mip
+        echo ""
+        show_status
+        ;;
+    low-power)
+        enable_low_power
+        echo ""
+        show_status
+        ;;
+    high-contrast)
+        enable_high_contrast
+        echo ""
+        show_status
+        ;;
+    mono-invert)
+        toggle_mono_invert
+        echo ""
+        show_status
+        ;;
+    set-mono-cutoff)
+        set_mono_cutoff "$2"
+        echo ""
+        show_status
+        ;;
+    set-color-cutoff)
+        set_color_cutoff "$2"
+        echo ""
+        show_status
+        ;;
+    help|--help|-h)
+        show_usage
+        ;;
+    *)
+        echo -e "${RED}[ERROR]${NC} Unknown command: $1"
+        echo ""
+        show_usage
+        exit 1
+        ;;
+esac

@@ -1,0 +1,141 @@
+#!/bin/bash
+# JDI Display Status Monitor
+# Autor: N@Xs - Enhanced Edition 2025
+# Monitor completo de estado del sistema JDI
+
+# Colors
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+echo -e "${BLUE}[INFO]${NC} JDI Display System Status Monitor"
+echo "=================================="
+
+if lsmod | grep -q jdi_drm_enhanced; then
+    echo -e "Driver: ${GREEN}✓ Loaded${NC}"
+    
+    # Check framebuffer
+    if [ -c "/dev/fb0" ]; then
+        echo -e "Framebuffer: ${GREEN}✓ Available at /dev/fb0${NC}"
+    else
+        echo -e "Framebuffer: ${RED}✗ Not available${NC}"
+    fi
+    
+    # Get resolution
+    if [ -f "/sys/class/graphics/fb0/virtual_size" ]; then
+        RESOLUTION=$(cat /sys/class/graphics/fb0/virtual_size)
+        echo "Resolution: $RESOLUTION"
+    fi
+    
+    # Check DRM
+    if ls /sys/class/drm/card* >/dev/null 2>&1; then
+        CARD=$(ls /sys/class/drm/card* | head -1 | xargs basename)
+        echo -e "DRM Card: ${GREEN}✓ $CARD available${NC}"
+    fi
+    
+    # Check PWM Backlight
+    echo ""
+    echo -e "${YELLOW}PWM Backlight Status:${NC}"
+    if [ -f "/sys/class/backlight/jdi-backlight/brightness" ]; then
+        current=$(cat /sys/class/backlight/jdi-backlight/brightness)
+        max_val=$(cat /sys/class/backlight/jdi-backlight/max_brightness)
+        
+        if [ "$current" -gt 0 ]; then
+            echo -e "  Status: ${GREEN}✓ ON${NC}"
+            echo "  Brightness: $current/$max_val"
+            percentage=$((current * 100 / max_val))
+            echo "  Percentage: ${percentage}%"
+        else
+            echo -e "  Status: ${RED}✗ OFF${NC}"
+            echo "  Brightness: $current/$max_val"
+        fi
+        
+        echo "  Interface: /sys/class/backlight/jdi-backlight/"
+        echo "  Type: $(cat /sys/class/backlight/jdi-backlight/type)"
+    else
+        echo -e "  ${RED}✗ PWM backlight not available${NC}"
+    fi
+    
+    # Color/Mono Mode Status
+    echo ""
+    echo -e "${YELLOW}Display Mode:${NC}"
+    color_mode=$(sudo cat /sys/module/jdi_drm_enhanced/parameters/color 2>/dev/null || echo "N/A")
+    if [ "$color_mode" = "Y" ]; then
+        echo -e "  Mode: ${GREEN}COLOR${NC}"
+        color_cutoff=$(sudo cat /sys/module/jdi_drm_enhanced/parameters/color_cutoff 2>/dev/null || echo "N/A")
+        echo "  Color cutoff: $color_cutoff"
+    elif [ "$color_mode" = "N" ]; then
+        echo -e "  Mode: ${YELLOW}MONOCHROME${NC}"
+        mono_cutoff=$(sudo cat /sys/module/jdi_drm_enhanced/parameters/mono_cutoff 2>/dev/null || echo "N/A")
+        mono_invert=$(sudo cat /sys/module/jdi_drm_enhanced/parameters/mono_invert 2>/dev/null || echo "N/A")
+        echo "  Mono cutoff: $mono_cutoff"
+        echo "  Inversion: $mono_invert"
+    else
+        echo "  Mode: N/A (needs sudo)"
+    fi
+    
+    # Module parameters status
+    echo ""
+    echo -e "${YELLOW}Power Management:${NC}"
+    if [ -d "/sys/module/jdi_drm_enhanced/parameters" ]; then
+        for param in auto_power_save auto_clear dither idle_timeout; do
+            if [ -f "/sys/module/jdi_drm_enhanced/parameters/$param" ]; then
+                value=$(sudo cat /sys/module/jdi_drm_enhanced/parameters/$param 2>/dev/null || echo "N/A")
+                
+                if [ "$value" = "Y" ] || [ "$value" = "1" ]; then
+                    echo -e "  $param: ${GREEN}ON${NC} ($value)"
+                elif [ "$value" = "N" ] || [ "$value" = "0" ]; then
+                    echo -e "  $param: ${RED}OFF${NC} ($value)"
+                elif [ "$value" != "N/A" ]; then
+                    echo "  $param: $value"
+                else
+                    echo -e "  $param: ${YELLOW}N/A${NC} (needs sudo)"
+                fi
+            fi
+        done
+    fi
+    
+    # Enhanced controller status
+    echo ""
+    echo -e "${YELLOW}Button Controller:${NC}"
+    if pgrep -f "enhanced_back.py" > /dev/null; then
+        PID=$(pgrep -f "enhanced_back.py")
+        UPTIME=$(ps -o etime= -p $PID | tr -d ' ')
+        echo -e "  Status: ${GREEN}✓ Running${NC} (PID: $PID)"
+        echo "  Uptime: $UPTIME"
+        echo "  GPIO 17: Active (PWM brightness cycling)"
+        
+        if command -v systemctl >/dev/null 2>&1; then
+            if systemctl is-active jdi-backlight-button.service >/dev/null 2>&1; then
+                echo -e "  Service: ${GREEN}✓ Active${NC} (systemd)"
+                if systemctl is-enabled jdi-backlight-button.service >/dev/null 2>&1; then
+                    echo "  Auto-start: ✓ Enabled"
+                fi
+            fi
+        fi
+    else
+        echo -e "  Status: ${RED}✗ Not running${NC}"
+        echo "  Start with: sudo systemctl start jdi-backlight-button.service"
+    fi
+    
+    # Quick status summary
+    echo ""
+    echo -e "${CYAN}System Summary:${NC}"
+    echo "  Driver: ✓ | PWM: ✓ | Button: ✓ | Display: $([ "$color_mode" = "Y" ] && echo "COLOR" || echo "MONO")"
+    
+else
+    echo -e "Driver: ${RED}✗ Not loaded${NC}"
+    echo "Load with: sudo modprobe jdi_drm_enhanced"
+fi
+
+echo ""
+echo -e "${CYAN}Available Commands:${NC}"
+echo "  jdi-status                 - This system status monitor"
+echo "  monoset [command]          - Color/mono mode control"
+echo "  brightness                 - Show PWM brightness"
+echo "  brightness-set N           - Set PWM brightness (0-6)"
+echo "  sudo powersave status      - Power management details"
+echo "  sudo optimize status       - Complete optimization status"

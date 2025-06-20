@@ -1,0 +1,89 @@
+// https://github.com/hyphenlee/jdi-drm-rpi
+// PWM from https://github.com/raspberrypi/linux/blob/rpi-5.4.y/arch/arm/boot/dts/overlays/pwm-overlay.dts
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "raspberrypi,model-zero-2-w", "brcm,bcm2837", "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709";
+
+	fragment@0 {
+		target = <&spi0>;
+		__overlay__ {
+			status = "okay";
+
+			spidev@0{
+				status = "disabled";
+			};
+
+			spidev@1{
+				status = "disabled";
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&spi0_pins>;
+		__overlay__ {
+			brcm,pins = <0x0a 0x0b>; /* skipping bcm9 MISO */
+		};
+	};
+
+	fragment@2 {
+		target = <&gpio>;
+		__overlay__ {
+			sharp_pins: sharp_pins {
+				brcm,pins = <23 22>;
+				brcm,function = <1 1>; /* out */
+			};
+
+			pwm_pins: pwm_pins {
+				brcm,pins = <18>;
+				brcm,function = <2>; /* Alt5 */
+			};
+		};
+	};
+
+	fragment@3 {
+		target = <&spi0>;
+		__overlay__ {
+			/* needed to avoid dtc warning */
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			sharp_drm: sharp_drm@0{
+				compatible = "jdi-drm-enhanced";
+				reg = <0>;
+				pinctrl-names = "default";
+				pinctrl-0 = <&sharp_pins>;
+				vcom-gpios = <&gpio 23 0>;
+				disp-gpios = <&gpio 22 0>;
+				spi-cs-high = <1>;
+				spi-max-frequency = <4000000>;
+				buswidth = <8>;
+				debug = <0>;
+			};
+		};
+	};
+
+	fragment@4 {
+		target = <&pwm>;
+		frag4: __overlay__ {
+			pinctrl-names = "default";
+			pinctrl-0 = <&pwm_pins>;
+			assigned-clock-rates = <100000000>;
+			status = "okay";
+		};
+	};
+
+	fragment@5 {
+		target-path = "/";
+		__overlay__ {
+			jdi-backlight {
+				compatible = "pwm-backlight";
+				pwms = <&pwm 0 5000000 0>;
+				brightness-levels = <0 8 16 32 64 128 255>;
+				default-brightness-level = <4>;
+			};
+		};
+	};
+};
