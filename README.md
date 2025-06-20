@@ -29,7 +29,7 @@ Based on official PDF specifications:
 
 ### 1. Download & Extract
 ```bash
-tar -xzf jdi-drm-enhanced64-COMPLETE.tar.gz
+sudo git clone https://github.com/ZoltXs/jdi-drm64
 cd jdi-drm-enhanced64-COMPLETE
 ```
 
@@ -44,7 +44,6 @@ chmod +x JDI_INSTALLER_COMPLETE.sh
 sudo reboot
 ```
 
-**After reboot, all LPM027M128C optimizations and GPIO17 button will be active automatically!**
 
 ## ✨ What Gets Installed Automatically
 
