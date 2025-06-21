@@ -25,12 +25,12 @@ Based on official PDF specifications:
 - ✅ **Quick Configuration Presets** - One-command display optimization
 - ✅ **Comprehensive Status Monitor** - Real-time system monitoring
 
-## 🚀 Quick Installation
+##  Quick Installation
 
 ### 1. Download & Extract
 ```bash
-tar -xzf jdi-drm-enhanced64-COMPLETE.tar.gz
-cd jdi-drm-enhanced64-COMPLETE
+sudo git clone https://github.com/ZoltXs/jdi-drm64
+cd jdi-drm64
 ```
 
 ### 2. Run Complete Installer  
@@ -46,15 +46,15 @@ sudo reboot
 
 **After reboot, all LPM027M128C optimizations and GPIO17 button will be active automatically!**
 
-## ✨ What Gets Installed Automatically
+##  What Gets Installed Automatically
 
-### 🔧 SystemD Services (Auto-start at boot)
+###  SystemD Services (Auto-start at boot)
 - **jdi-backlight-button.service** - GPIO 17 button for brightness control
 - **jdi-auto-optimize.service** - Automatic LPM027M128C optimization
 - **jdi-powersave.service** - Intelligent 5-minute power saving
 - **jdi-permissions.service** - Boot-time permissions setup
 
-### ⚙️ System Configuration
+###  System Configuration
 - **System Update**: Updates all packages automatically
 - **Dependencies**: Installs kernel headers, build-essential, git, dtc
 - **Device Tree Overlay**: dtoverlay=jdi-drm-enhanced in /boot/firmware/config.txt
@@ -63,16 +63,16 @@ sudo reboot
 - **Auto Module Loading**: Driver loads at boot
 - **PWM Backlight**: Full 7-level brightness control (0-3)
 
-### 🎯 Complete Command Set (40+ aliases)
+###  Complete Command Set (40+ aliases)
 - **LPM027M128C-specific commands** based on PDF specifications
 - **Quick configuration presets** for different use cases
 - **Power management commands** for MIP technology
 - **System monitoring tools** with real-time status
 - **Advanced help system** with comprehensive documentation
 
-## 📱 LPM027M128C Command Reference
+##  LPM027M128C Command Reference
 
-### 📊 System Status & Control
+###  System Status & Control
 ```bash
 jdi-status              # Complete system status monitor
                         # Shows: Driver status, PWM backlight, display mode,
@@ -83,14 +83,14 @@ brightness              # Show current PWM brightness (0-3)
 brightness-set N        # Set PWM brightness (0-3)
 ```
 
-### 🔧 SystemD Service Management
+###  SystemD Service Management
 ```bash
 power-status            # Show jdi-powersave.service status
 power-performance       # Stop power saving (performance mode)
 power-eco               # Start power saving (eco mode)
 ```
 
-### 🖥️ LPM027M128C Specific Commands
+###  LPM027M128C Specific Commands
 Based on official PDF specifications:
 
 ```bash
@@ -103,7 +103,7 @@ lpm027-lowpower         # MIP low power mode
 lpm027-optimize         # Advanced display optimizer
 ```
 
-### 🎛️ Quick Configuration Presets
+###  Quick Configuration Presets
 ```bash
 preset-indoor           # Optimized for indoor use
                         # (8-color mode + brightness 4)
@@ -121,7 +121,7 @@ preset-reading          # Optimized for reading
                         # (8-color mode + brightness 3)
 ```
 
-### ⚡ Power Management (MIP Technology)
+###  Power Management (MIP Technology)
 ```bash
 powersave               # Advanced power management
 power-status            # Power management status  
@@ -184,11 +184,11 @@ lpm027-lowpower
 ### Help System
 ```bash
 jdi-help                # Complete command reference with categories:
-                        # 📊 System Status & Control
-                        # 🖥️ LPM027M128C Specific Commands
-                        # 🎛️ Quick Configuration Presets
-                        # ⚡ Power Management
-                        # 🔧 System Commands
+                        #  System Status & Control
+                        #  LPM027M128C Specific Commands
+                        #  Quick Configuration Presets
+                        #  Power Management
+                        #  System Commands
 ```
 
 ### Diagnostic Commands
@@ -213,7 +213,7 @@ journalctl -u jdi-backlight-button.service -f
 journalctl -u jdi-powersave.service -f
 ```
 
-## 🎯 Usage Examples
+##  Usage Examples
 
 ### Daily Use Scenarios
 
@@ -287,7 +287,7 @@ jdi-status              # Run anytime to check system status
 
 This tool is essential for troubleshooting and monitoring the complete JDI driver ecosystem.
 
-## 💝 Credits & License
+##  Credits & License
 
 **Author**: N@Xs - Enhanced Edition 2025  
 **Display**: LPM027M128C specifications-based implementation  
