@@ -121,7 +121,7 @@ compile_driver() {
     make clean 2>/dev/null
     
     # Compile
-    if make; then
+    if sudo make; then
         log_success "Driver compiled successfully without warnings"
     else
         log_error "Error compiling the driver"
