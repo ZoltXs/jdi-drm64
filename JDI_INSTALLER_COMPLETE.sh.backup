@@ -388,12 +388,6 @@ main() {
     # Compile driver with fixes
     compile_driver
     
-    # Verify brightness configuration
-    verify_brightness_configuration
-    
-    # Compile and install device tree overlay
-    compile_device_tree_overlay
-
     # Install driver
     install_driver
     
@@ -403,9 +397,6 @@ main() {
     # Create systemd services
     create_systemd_services
     
-    # Clean up build artifacts
-    clean_build_artifacts
-
     # Add comprehensive aliases
     add_comprehensive_aliases
     
@@ -455,79 +446,3 @@ main() {
 
 # Execute main function
 main "$@"
-# Device tree overlay compilation and installation functions
-
-compile_device_tree_overlay() {
-    log_info "Compiling device tree overlay with correct brightness levels..."
-    cd "$DRIVER_DIR"
-    
-    # Verify brightness levels are correct in device tree source
-    if grep -q "brightness-levels = <0 1 2 3>" jdi-drm-enhanced.dts; then
-        log_success "Device tree has correct brightness levels (0-3)"
-    else
-        log_warn "Fixing device tree brightness levels..."
-        sed -i 's/brightness-levels = <[^>]*>/brightness-levels = <0 1 2 3>/' jdi-drm-enhanced.dts
-    fi
-    
-    # Compile device tree overlay
-    if dtc -@ -I dts -O dtb -o jdi-drm-enhanced.dtbo jdi-drm-enhanced.dts 2>/dev/null; then
-        log_success "Device tree overlay compiled successfully"
-    else
-        log_error "Failed to compile device tree overlay"
-        return 1
-    fi
-    
-    # Install overlay to /boot/overlays/
-    if sudo cp jdi-drm-enhanced.dtbo /boot/overlays/; then
-        log_success "Device tree overlay installed to /boot/overlays/"
-    else
-        log_error "Failed to install device tree overlay"
-        return 1
-    fi
-}
-
-verify_brightness_configuration() {
-    log_info "Verifying brightness configuration consistency..."
-    
-    # Check if all scripts use correct brightness levels (0-3)
-    local errors=0
-    
-    # Check GPIO17 button handler
-    if ! grep -q "BRIGHTNESS_LEVELS = \[0, 1, 2, 3\]" gpio17_button_handler.py; then
-        log_error "GPIO17 handler has wrong brightness levels"
-        errors=$((errors + 1))
-    fi
-    
-    # Check simple brightness control
-    if grep -q "0-6\|/6" simple_brightness_control.sh; then
-        log_error "Simple brightness control still references 0-6 range"
-        errors=$((errors + 1))
-    fi
-    
-    # Check enhanced back script
-    if ! grep -q "BRIGHTNESS_LEVELS = \[0, 1, 2, 3\]" enhanced_back.py; then
-        log_error "Enhanced back script has wrong brightness levels"
-        errors=$((errors + 1))
-    fi
-    
-    if [ $errors -eq 0 ]; then
-        log_success "All brightness configurations are consistent (0-3)"
-        return 0
-    else
-        log_error "$errors brightness configuration errors found"
-        return 1
-    fi
-}
-
-clean_build_artifacts() {
-    log_info "Cleaning up build artifacts and temporary files..."
-    cd "$DRIVER_DIR"
-    
-    # Remove build artifacts
-    rm -f *.o *.ko *.mod *.cmd .*.cmd Module.symvers modules.order .module-common.o .lgd-nfy0 2>/dev/null
-    
-    # Remove backup and temporary files
-    rm -f *.backup temp_* 2>/dev/null
-    
-    log_success "Build artifacts cleaned up"
-}

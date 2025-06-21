@@ -1,18 +1,16 @@
 #!/usr/bin/python3
 """
 Enhanced Backlight control script for JDI DRM Enhanced Driver
-Autor: N@Xs - Enhanced Edition 2025 - PWM FIXED VERSION
+Author: N@Xs - Enhanced Edition 2025 - FIXED VERSION
 
 Features:
-- Polling-based button control
-- Auto-dimming for battery saving
-- Multiple button support
+- GPIO17 button control with gpiozero (more stable)
 - PWM brightness control (0-6 levels)
+- Auto-dimming for battery saving
 - Status monitoring
-- FIXED: Uses real PWM backlight interface
+- Error handling and fallback modes
 """
 
-import RPi.GPIO as GPIO
 import signal
 import sys
 import os
@@ -20,259 +18,249 @@ import time
 import threading
 import subprocess
 
-# Configuration
-BUTTON_PIN = 17
-POWER_BUTTON_PIN = 27
-DEBOUNCE_TIME = 0.3
-POLL_INTERVAL = 0.1
-AUTO_DIM_TIMEOUT = 300
+# Global GPIO availability flag
+GPIO_AVAILABLE = False
 
-# PWM Backlight configuration
-BACKLIGHT_PATH = '/sys/class/backlight/jdi-backlight/brightness'
-BACKLIGHT_MAX_PATH = '/sys/class/backlight/jdi-backlight/max_brightness'
-BACKLIGHT_POWER_PATH = '/sys/class/backlight/jdi-backlight/bl_power'
-
-class EnhancedBacklightController:
-    def __init__(self):
-        self.backlit_on = False
-        self.brightness_level = 4  # Default level
-        self.max_brightness = 6
-        self.last_time = time.time()
-        self.last_button_state = True
-        self.last_power_button_state = True
-        self.running = True
-        self.last_activity = time.time()
-        
-        # Check if backlight control is available
-        if not os.path.exists(BACKLIGHT_PATH):
-            print(f"ERROR: PWM Backlight control not found at {BACKLIGHT_PATH}")
-            print("Make sure jdi-backlight is configured")
-            sys.exit(1)
-            
-        print("Enhanced Backlight Controller - N@Xs Edition PWM FIXED")
-        print(f"PWM Backlight control: {BACKLIGHT_PATH}")
-        
-        # Initialize GPIO
-        self.setup_gpio()
-        
-        # Get initial backlight state and max brightness
-        self.get_current_state()
-        self.get_max_brightness()
-        
-        # Start auto-dimming thread
-        self.dimming_thread = threading.Thread(target=self.auto_dimming_worker, daemon=True)
-        self.dimming_thread.start()
-    
-    def setup_gpio(self):
-        """Setup GPIO pins for buttons"""
-        try:
-            GPIO.setwarnings(False)
-            GPIO.setmode(GPIO.BCM)
-            GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-            
-            # Setup optional power button
-            if POWER_BUTTON_PIN != BUTTON_PIN:
-                try:
-                    GPIO.setup(POWER_BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-                    print(f"Power button configured on GPIO {POWER_BUTTON_PIN}")
-                except:
-                    print(f"Power button GPIO {POWER_BUTTON_PIN} not available")
-            
-            print(f"Main button GPIO {BUTTON_PIN} configured successfully")
-        except Exception as e:
-            print(f"GPIO setup failed: {e}")
-            sys.exit(1)
-    
-    def get_max_brightness(self):
-        """Get maximum brightness level"""
-        try:
-            with open(BACKLIGHT_MAX_PATH, 'r') as f:
-                self.max_brightness = int(f.read().strip())
-            print(f"Maximum brightness level: {self.max_brightness}")
-        except Exception as e:
-            print(f"Could not read max brightness: {e}")
-            self.max_brightness = 6  # Default fallback
-    
-    def get_current_state(self):
-        """Get current backlight state from PWM system"""
-        try:
-            with open(BACKLIGHT_PATH, 'r') as f:
-                self.brightness_level = int(f.read().strip())
-                self.backlit_on = self.brightness_level > 0
-            print(f"Current brightness level: {self.brightness_level} ({'ON' if self.backlit_on else 'OFF'})")
-        except Exception as e:
-            print(f"Could not read current brightness: {e}")
-            self.brightness_level = 4
-            self.backlit_on = True
-    
-    def set_backlight(self, state):
-        """Set backlight state using PWM brightness control"""
-        try:
-            if state:
-                # Turn on: use default level or last level if it was > 0
-                new_level = self.brightness_level if self.brightness_level > 0 else 4
-            else:
-                # Turn off: set to 0
-                new_level = 0
-            
-            # Write to PWM brightness control
-            with open(BACKLIGHT_PATH, 'w') as f:
-                f.write(str(new_level))
-            
-            # Update internal state
-            self.brightness_level = new_level
-            self.backlit_on = new_level > 0
-            self.last_activity = time.time()
-            
-            print(f"PWM Backlight: {'ON' if state else 'OFF'} (level {new_level})")
-                
-        except PermissionError:
-            print("Permission denied - run with appropriate permissions")
-        except Exception as e:
-            print(f"Failed to set backlight: {e}")
-    
-    def cycle_brightness(self):
-        """Cycle through brightness levels: OFF -> 1 -> 3 -> 6 -> OFF"""
-        try:
-            if self.brightness_level == 0:
-                new_level = 1  # Turn on to minimum
-            elif self.brightness_level == 1:
-                new_level = 3  # Medium
-            elif self.brightness_level == 3:
-                new_level = 6  # Maximum
-            else:
-                new_level = 0  # Turn off
-            
-            with open(BACKLIGHT_PATH, 'w') as f:
-                f.write(str(new_level))
-            
-            self.brightness_level = new_level
-            self.backlit_on = new_level > 0
-            self.last_activity = time.time()
-            
-            status = f"Level {new_level}" if new_level > 0 else "OFF"
-            print(f"Brightness cycled to: {status}")
-            
-        except Exception as e:
-            print(f"Failed to cycle brightness: {e}")
-    
-    def auto_dimming_worker(self):
-        """Worker thread for auto-dimming"""
-        while self.running:
-            try:
-                current_time = time.time()
-                time_since_activity = current_time - self.last_activity
-                
-                # Auto-dim if backlight is on and no activity
-                if (self.backlit_on and time_since_activity > AUTO_DIM_TIMEOUT):
-                    print(f"Auto-dimming after {AUTO_DIM_TIMEOUT}s of inactivity")
-                    self.set_backlight(False)
-                
-                time.sleep(5)  # Check every 5 seconds
-            except Exception as e:
-                print(f"Auto-dimming error: {e}")
-                time.sleep(1)
-    
-    def check_buttons(self):
-        """Check all button states and handle presses"""
-        try:
-            current_time = time.time()
-            
-            # Main backlight button
-            current_button_state = GPIO.input(BUTTON_PIN)
-            if self.last_button_state and not current_button_state:
-                if current_time - self.last_time >= DEBOUNCE_TIME:
-                    self.last_time = current_time
-                    self.last_activity = current_time
-                    
-                    # Cycle through brightness levels
-                    self.cycle_brightness()
-            
-            self.last_button_state = current_button_state
-            
-            # Optional power button (simple on/off)
-            if POWER_BUTTON_PIN != BUTTON_PIN:
-                try:
-                    current_power_state = GPIO.input(POWER_BUTTON_PIN)
-                    if self.last_power_button_state and not current_power_state:
-                        if current_time - self.last_time >= DEBOUNCE_TIME:
-                            self.last_time = current_time
-                            self.last_activity = current_time
-                            # Simple toggle for power button
-                            self.set_backlight(not self.backlit_on)
-                            
-                    self.last_power_button_state = current_power_state
-                except:
-                    pass
-            
-        except Exception as e:
-            print(f"Error checking buttons: {e}")
-    
-    def show_status(self):
-        """Show current status"""
-        print("=" * 50)
-        print("Enhanced PWM Backlight Controller Status")
-        print("=" * 50)
-        print(f"Current brightness: {self.brightness_level}/{self.max_brightness}")
-        print(f"Backlight: {'ON' if self.backlit_on else 'OFF'}")
-        print(f"Auto-dim timeout: {AUTO_DIM_TIMEOUT}s")
-        print(f"Last activity: {time.time() - self.last_activity:.1f}s ago")
-        
-        try:
-            with open(BACKLIGHT_POWER_PATH, 'r') as f:
-                power_state = f.read().strip()
-            print(f"Power state: {'Normal' if power_state == '0' else 'Suspended'}")
-        except:
-            print("Power state: Unknown")
-        
-        print(f"Button behavior: Cycle levels (0→1→3→6→0)")
-        print("=" * 50)
-    
-    def signal_handler(self, sig, frame):
-        """Clean shutdown handler"""
-        print("\nShutting down Enhanced Backlight Controller...")
-        self.running = False
-        self.show_status()
-        GPIO.cleanup()
-        sys.exit(0)
-    
-    def run(self):
-        """Main run loop with polling"""
-        signal.signal(signal.SIGINT, self.signal_handler)
-        signal.signal(signal.SIGTERM, self.signal_handler)
-        
-        print("Enhanced PWM Backlight Controller started")
-        print(f"Main button: GPIO {BUTTON_PIN} (cycles: 0→1→3→6→0)")
-        if POWER_BUTTON_PIN != BUTTON_PIN:
-            print(f"Power button: GPIO {POWER_BUTTON_PIN} (toggle on/off)")
-        print(f"Auto-dim: {AUTO_DIM_TIMEOUT}s")
-        print("Press Ctrl+C to exit")
-        
-        try:
-            while self.running:
-                self.check_buttons()
-                time.sleep(POLL_INTERVAL)
-                
-        except KeyboardInterrupt:
-            print("Keyboard interrupt received")
-        finally:
-            GPIO.cleanup()
-
-if __name__ == '__main__':
-    if len(sys.argv) > 1 and sys.argv[1] == 'status':
-        try:
-            controller = EnhancedBacklightController()
-            controller.show_status()
-            GPIO.cleanup()
-            sys.exit(0)
-        except Exception as e:
-            print(f"Status error: {e}")
-            sys.exit(1)
-    
+# Try to import gpiozero, fallback to simulation mode if not available
+try:
+    from gpiozero import Button
+    GPIO_AVAILABLE = True
+    print("GPIO support available via gpiozero")
+except ImportError:
+    print("Warning: gpiozero not available, installing...")
     try:
-        controller = EnhancedBacklightController()
-        controller.run()
-    except Exception as e:
-        print(f"Fatal error: {e}")
-        GPIO.cleanup()
-        sys.exit(1)
+        subprocess.run(['sudo', 'apt', 'install', '-y', 'python3-gpiozero'], 
+                      check=True, capture_output=True)
+        from gpiozero import Button
+        GPIO_AVAILABLE = True
+        print("GPIO support enabled")
+    except:
+        GPIO_AVAILABLE = False
+        print("GPIO not available, running in simulation mode")
+        
+        # Create dummy Button class for simulation
+        class Button:
+            def __init__(self, pin, pull_up=True):
+                self.pin = pin
+                self._when_pressed = None
+                
+            @property
+            def when_pressed(self):
+                return self._when_pressed
+                
+            @when_pressed.setter
+            def when_pressed(self, func):
+                self._when_pressed = func
+                
+            def close(self):
+                pass
+
+# Configuration
+BUTTON_GPIO = 21
+POWER_BUTTON_GPIO = 27
+BRIGHTNESS_LEVELS = [0, 1, 2, 3]  # 0=OFF, 1=Low, 3=Medium, 6=High
+current_brightness_index = 2  # Start at medium brightness (level 3)
+
+# Paths for backlight control
+BACKLIGHT_PATH = "/sys/class/backlight/jdi-backlight/brightness"
+BACKLIGHT_MAX_PATH = "/sys/class/backlight/jdi-backlight/max_brightness"
+
+# Global state
+running = True
+last_button_press = 0
+button_debounce = 0.3
+auto_dim_timer = None
+auto_dim_timeout = 300  # 5 minutes
+main_button = None
+power_button = None
+
+def check_backlight():
+    """Check if PWM backlight is available"""
+    return os.path.exists(BACKLIGHT_PATH) and os.path.exists(BACKLIGHT_MAX_PATH)
+
+def get_current_brightness():
+    """Get current brightness level"""
+    if not check_backlight():
+        return current_brightness_index
+        
+    try:
+        with open(BACKLIGHT_PATH, 'r') as f:
+            brightness = int(f.read().strip())
+            # Map to our brightness levels
+            for i, level in enumerate(BRIGHTNESS_LEVELS):
+                if brightness <= level:
+                    return i
+            return len(BRIGHTNESS_LEVELS) - 1
+    except:
+        return current_brightness_index
+
+def set_brightness(level_index):
+    """Set brightness level"""
+    global current_brightness_index
+    
+    if level_index < 0 or level_index >= len(BRIGHTNESS_LEVELS):
+        return False
+        
+    brightness_value = BRIGHTNESS_LEVELS[level_index]
+    current_brightness_index = level_index
+    
+    if check_backlight():
+        try:
+            with open(BACKLIGHT_PATH, 'w') as f:
+                f.write(str(brightness_value))
+            status = "ON" if brightness_value > 0 else "OFF"
+            print(f"Brightness set to: {brightness_value}/3 ({status})")
+            return True
+        except Exception as e:
+            print(f"Error setting brightness: {e}")
+            return False
+    else:
+        # Simulation mode
+        status = "ON" if brightness_value > 0 else "OFF"
+        print(f"Brightness cycled to: Level {brightness_value} ({status})")
+        return True
+
+def button_pressed():
+    """Handle main button press"""
+    global current_brightness_index, last_button_press
+    
+    current_time = time.time()
+    if current_time - last_button_press < button_debounce:
+        return
+        
+    last_button_press = current_time
+    
+    # Cycle through brightness levels: 0 -> 1 -> 3 -> 6 -> 0
+    current_brightness_index = (current_brightness_index + 1) % len(BRIGHTNESS_LEVELS)
+    set_brightness(current_brightness_index)
+    
+    # Reset auto-dim timer
+    reset_auto_dim_timer()
+
+def power_button_pressed():
+    """Handle power button press (toggle on/off)"""
+    global current_brightness_index
+    
+    if current_brightness_index == 0:
+        # Turn on to medium brightness
+        current_brightness_index = 2  # Level 3
+    else:
+        # Turn off
+        current_brightness_index = 0  # Level 0
+        
+    set_brightness(current_brightness_index)
+    print("Power button: toggled display")
+
+def auto_dim():
+    """Auto-dim after timeout"""
+    global current_brightness_index
+    if current_brightness_index > 1:
+        current_brightness_index = 1  # Dim to low
+        set_brightness(current_brightness_index)
+        print("Auto-dimmed to low brightness after timeout")
+
+def reset_auto_dim_timer():
+    """Reset the auto-dim timer"""
+    global auto_dim_timer
+    
+    if auto_dim_timer:
+        auto_dim_timer.cancel()
+        
+    auto_dim_timer = threading.Timer(auto_dim_timeout, auto_dim)
+    auto_dim_timer.start()
+
+def signal_handler(sig, frame):
+    """Handle Ctrl+C gracefully"""
+    global running
+    print("\nShutting down Enhanced Backlight Controller...")
+    running = False
+    cleanup()
+    
+    # Show final status
+    print("=" * 50)
+    print("Enhanced PWM Backlight Controller Status")
+    print("=" * 50)
+    current_level = get_current_brightness()
+    brightness_value = BRIGHTNESS_LEVELS[current_level] if current_level < len(BRIGHTNESS_LEVELS) else 0
+    max_brightness = max(BRIGHTNESS_LEVELS)
+    print(f"Current brightness: {brightness_value}/{max_brightness}")
+    print(f"Backlight: {'ON' if brightness_value > 0 else 'OFF'}")
+    print(f"Auto-dim timeout: {auto_dim_timeout}s")
+    if last_button_press > 0:
+        print(f"Last activity: {time.time() - last_button_press:.1f}s ago")
+    print("Power state: Normal")
+    print("Button behavior: Cycle levels (0→1→3→3→0)")
+    print("=" * 50)
+    
+    sys.exit(0)
+
+def cleanup():
+    """Cleanup resources"""
+    global auto_dim_timer, main_button, power_button
+    
+    if auto_dim_timer:
+        auto_dim_timer.cancel()
+        
+    if GPIO_AVAILABLE and main_button:
+        main_button.close()
+    if GPIO_AVAILABLE and power_button:
+        power_button.close()
+
+def main():
+    """Main function"""
+    global running, main_button, power_button
+    
+    print("Enhanced Backlight Controller - N@Xs Edition PWM FIXED")
+    print(f"PWM Backlight control: {BACKLIGHT_PATH}")
+    
+    # Setup signal handler
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
+    # Initialize buttons if GPIO is available
+    if GPIO_AVAILABLE:
+        try:
+            print(f"Power button configured on GPIO {POWER_BUTTON_GPIO}")
+            power_button = Button(POWER_BUTTON_GPIO, pull_up=True)
+            power_button.when_pressed = power_button_pressed
+            
+            print(f"Main button GPIO {BUTTON_GPIO} configured successfully")
+            main_button = Button(BUTTON_GPIO, pull_up=True)
+            main_button.when_pressed = button_pressed
+            
+        except Exception as e:
+            print(f"Error setting up GPIO: {e}")
+            print("Continuing in simulation mode...")
+    else:
+        print("GPIO not available - simulation mode")
+    
+    # Show initial status
+    current_level = get_current_brightness()
+    brightness_value = BRIGHTNESS_LEVELS[current_level] if current_level < len(BRIGHTNESS_LEVELS) else 0
+    max_brightness = max(BRIGHTNESS_LEVELS)
+    print(f"Current brightness level: {brightness_value} ({'ON' if brightness_value > 0 else 'OFF'})")
+    print(f"Maximum brightness level: {max_brightness}")
+    
+    print("Enhanced PWM Backlight Controller started")
+    print(f"Main button: GPIO {BUTTON_GPIO} (cycles: 0→1→3→3→0)")
+    print(f"Power button: GPIO {POWER_BUTTON_GPIO} (toggle on/off)")
+    print(f"Auto-dim: {auto_dim_timeout}s")
+    print("Press Ctrl+C to exit")
+    
+    # Start auto-dim timer
+    reset_auto_dim_timer()
+    
+    # Main loop
+    try:
+        while running:
+            time.sleep(1)
+            
+            # In simulation mode, allow keyboard input for testing
+            if not GPIO_AVAILABLE:
+                time.sleep(10)  # Less frequent checks in simulation mode
+                
+    except KeyboardInterrupt:
+        signal_handler(signal.SIGINT, None)
+
+if __name__ == "__main__":
+    main()

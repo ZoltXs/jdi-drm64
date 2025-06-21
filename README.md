@@ -19,7 +19,7 @@ Based on official PDF specifications:
 
 - ✅ **GPIO17 Button Control** - Hardware button for brightness cycling
 - ✅ **SystemD Integration** - Auto-start services for all features
-- ✅ **PWM Backlight Control** - 7 brightness levels (0-6)
+- ✅ **PWM Backlight Control** - 7 brightness levels (0-3)
 - ✅ **Intelligent Power Management** - 5-minute auto power saving
 - ✅ **40+ Command Aliases** - Complete LPM027M128C command set
 - ✅ **Quick Configuration Presets** - One-command display optimization
@@ -29,7 +29,7 @@ Based on official PDF specifications:
 
 ### 1. Download & Extract
 ```bash
-sudo git clone https://github.com/ZoltXs/jdi-drm64
+tar -xzf jdi-drm-enhanced64-COMPLETE.tar.gz
 cd jdi-drm-enhanced64-COMPLETE
 ```
 
@@ -44,6 +44,7 @@ chmod +x JDI_INSTALLER_COMPLETE.sh
 sudo reboot
 ```
 
+**After reboot, all LPM027M128C optimizations and GPIO17 button will be active automatically!**
 
 ## ✨ What Gets Installed Automatically
 
@@ -60,7 +61,7 @@ sudo reboot
 - **SPI Interface**: Automatically enabled
 - **GPIO Permissions**: pi user added to gpio, spi, i2c groups
 - **Auto Module Loading**: Driver loads at boot
-- **PWM Backlight**: Full 7-level brightness control (0-6)
+- **PWM Backlight**: Full 7-level brightness control (0-3)
 
 ### 🎯 Complete Command Set (40+ aliases)
 - **LPM027M128C-specific commands** based on PDF specifications
@@ -78,8 +79,8 @@ jdi-status              # Complete system status monitor
                         #        power management, GPIO button status,
                         #        SystemD services, and available commands
                         
-brightness              # Show current PWM brightness (0-6)
-brightness-set N        # Set PWM brightness (0-6)
+brightness              # Show current PWM brightness (0-3)
+brightness-set N        # Set PWM brightness (0-3)
 ```
 
 ### 🔧 SystemD Service Management
@@ -108,7 +109,7 @@ preset-indoor           # Optimized for indoor use
                         # (8-color mode + brightness 4)
                         
 preset-outdoor          # Optimized for outdoor use
-                        # (reflective mode + max brightness 6)
+                        # (reflective mode + max brightness 3)
                         
 preset-battery          # Maximum battery life
                         # (low power mode + brightness 1)
@@ -227,10 +228,10 @@ preset-indoor           # 8-color mode + brightness 4
 
 #### Outdoor Reading
 ```bash  
-preset-outdoor          # Reflective mode + max brightness 6
+preset-outdoor          # Reflective mode + max brightness 3
 # Result: Maximum visibility in sunlight
 # - Enables reflective LCD optimization
-# - Sets maximum brightness (level 6)
+# - Sets maximum brightness (level 3)
 # - Enhanced contrast for outdoor visibility
 ```
 

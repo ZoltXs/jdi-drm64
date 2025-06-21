@@ -1,5 +1,6 @@
 // https://github.com/hyphenlee/jdi-drm-rpi
 // PWM from https://github.com/raspberrypi/linux/blob/rpi-5.4.y/arch/arm/boot/dts/overlays/pwm-overlay.dts
+// Enhanced with GPIO17 button support
 /dts-v1/;
 /plugin/;
 
@@ -39,6 +40,12 @@
 			pwm_pins: pwm_pins {
 				brcm,pins = <18>;
 				brcm,function = <2>; /* Alt5 */
+			};
+
+			button_pins: button_pins {
+				brcm,pins = <17>;
+				brcm,function = <0>; /* input */
+				brcm,pull = <2>; /* pull-up */
 			};
 		};
 	};
@@ -81,8 +88,29 @@
 			jdi-backlight {
 				compatible = "pwm-backlight";
 				pwms = <&pwm 0 5000000 0>;
-				brightness-levels = <0 8 16 32 64 128 255>;
-				default-brightness-level = <4>;
+				brightness-levels = <0 1 2 3>;
+				default-brightness-level = <2>;
+			};
+		};
+	};
+
+	fragment@6 {
+		target-path = "/";
+		__overlay__ {
+			gpio-keys {
+				compatible = "gpio-keys";
+				pinctrl-names = "default";
+				pinctrl-0 = <&button_pins>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				autorepeat;
+
+				brightness-button {
+					label = "Brightness Button";
+					linux,code = <240>; /* CUSTOM KEY - NOT POWER */
+					gpios = <&gpio 17 1>; /* GPIO17, active low */
+					debounce-interval = <50>;
+				};
 			};
 		};
 	};

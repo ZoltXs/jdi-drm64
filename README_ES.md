@@ -59,8 +59,8 @@ sudo reboot
 ### 📊 Estado del Sistema y Control
 ```bash
 jdi-status              # Monitor completo del estado del sistema
-brightness              # Mostrar brillo PWM actual (0-6)
-brightness-set N        # Establecer brillo PWM (0-6)
+brightness              # Mostrar brillo PWM actual (0-3)
+brightness-set N        # Establecer brillo PWM (0-3)
 ```
 
 ### 🖥️ Comandos Específicos LPM027M128C
