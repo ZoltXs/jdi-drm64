@@ -2,7 +2,7 @@
 
 **DRIVER COMPLETELY OPTIMIZED FOR LPM027M128C WITH FULL SYSTEMD INTEGRATION**
 
-## 📋 LPM027M128C Technical Specifications
+##  LPM027M128C Technical Specifications
 
 Based on official PDF specifications:
 
@@ -15,15 +15,15 @@ Based on official PDF specifications:
 - **Type**: Reflective LCD with advanced contrast
 - **Power**: Ultra-low consumption with MIP technology
 
-## 🎯 New Features in Enhanced Edition
+##  New Features in Enhanced Edition
 
-- ✅ **GPIO17 Button Control** - Hardware button for brightness cycling
-- ✅ **SystemD Integration** - Auto-start services for all features
-- ✅ **PWM Backlight Control** - 7 brightness levels (0-3)
-- ✅ **Intelligent Power Management** - 5-minute auto power saving
-- ✅ **40+ Command Aliases** - Complete LPM027M128C command set
-- ✅ **Quick Configuration Presets** - One-command display optimization
-- ✅ **Comprehensive Status Monitor** - Real-time system monitoring
+-  **GPIO17 Button Control** - Hardware button for brightness cycling
+-  **SystemD Integration** - Auto-start services for all features
+-  **PWM Backlight Control** - 7 brightness levels (0-3)
+-  **Intelligent Power Management** - 5-minute auto power saving
+-  **40+ Command Aliases** - Complete LPM027M128C command set
+-  **Quick Configuration Presets** - One-command display optimization
+-  **Comprehensive Status Monitor** - Real-time system monitoring
 
 ##  Quick Installation
 
