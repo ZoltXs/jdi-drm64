@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 """
 Enhanced Power Management for JDI Display
-Autor: N@Xs - Enhanced Edition 2025 - PWM FIXED VERSION
+Autor: N@Xs - Enhanced Edition 2025 -
 """
 
 import os
